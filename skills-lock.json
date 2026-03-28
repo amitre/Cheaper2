@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "israeli-product-price-comparator": {
+      "source": "skills-il/developer-tools",
+      "sourceType": "github",
+      "computedHash": "3f7a00096d878e9a7e1ebb1d2666fc4e8630ff2fa232f5e97887ebdab9fc9b99"
+    }
+  }
+}

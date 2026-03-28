@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cheaper2 - Price Comparison",
-  description: "Find the best prices with Cheaper2 price comparison",
+  title: "Cheaper2 — Israeli Price Comparison",
+  description: "Compare product prices across major Israeli retailers including Zap, KSP, iDigital, Ivory, and more.",
 };
 
 export default function RootLayout({
@@ -13,9 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
-      </body>
+      <body className="antialiased min-h-screen bg-white">{children}</body>
     </html>
   );
 }

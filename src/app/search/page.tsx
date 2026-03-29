@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { retailers } from "@/lib/retailers";
-import ImportCalculator from "@/components/ImportCalculator";
+import { generateProducts } from "@/lib/products";
+import ProductSelectionCard from "@/components/ProductSelectionCard";
 
 async function handleSearch(formData: FormData) {
   "use server";
@@ -18,9 +18,18 @@ export default async function SearchPage({ searchParams }: Props) {
 
   if (!query) redirect("/");
 
+  let data;
+  let error = false;
+
+  try {
+    data = await generateProducts(query);
+  } catch {
+    error = true;
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header with inline search */}
+      {/* Sticky header */}
       <header className="border-b border-gray-100 px-6 py-4 sticky top-0 bg-white z-10">
         <div className="max-w-3xl mx-auto flex items-center gap-4">
           <a href="/" className="text-lg font-bold text-blue-600 shrink-0">
@@ -32,7 +41,7 @@ export default async function SearchPage({ searchParams }: Props) {
               type="text"
               defaultValue={query}
               placeholder="Search a product..."
-              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="submit"
@@ -44,122 +53,66 @@ export default async function SearchPage({ searchParams }: Props) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-8 space-y-10">
-        {/* Results heading */}
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Results for <span className="text-blue-600">&ldquo;{query}&rdquo;</span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Click a retailer below to see live prices
-          </p>
-        </div>
+      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-8 space-y-6">
+        {error ? (
+          /* Fallback when API unavailable */
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-sm mb-2">
+              לא ניתן לטעון המלצות כרגע.
+            </p>
+            <a
+              href={`/compare?q=${encodeURIComponent(query)}&name=${encodeURIComponent(query)}&brand=&min=0&max=0`}
+              className="text-blue-600 text-sm hover:underline"
+            >
+              חפש ישירות באתרים →
+            </a>
+          </div>
+        ) : data ? (
+          <>
+            {/* Heading */}
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                אפשרויות עבור{" "}
+                <span className="text-blue-600">&ldquo;{query}&rdquo;</span>
+              </h1>
+              <p className="text-sm text-gray-400 mt-1">
+                בחר מוצר לצפייה בהשוואת מחירים מלאה
+              </p>
+            </div>
 
-        {/* Retailer search links */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            Israeli retailers
-          </h2>
-          <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-            {retailers.map((r) => (
-              <a
-                key={r.name}
-                href={r.searchUrl(query)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
+            {/* Category tip */}
+            {data.categoryTip && (
+              <div
+                className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-right"
+                dir="rtl"
               >
-                <div className="flex items-center gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {r.name}
-                      </span>
-                      {r.badge && (
-                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                          {r.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{r.description}</p>
-                  </div>
-                </div>
-                <svg
-                  className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
+                <p className="text-xs text-amber-800">
+                  <span className="font-semibold">טיפ: </span>
+                  {data.categoryTip}
+                </p>
+              </div>
+            )}
+
+            {/* Product cards grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Recommended first */}
+              {[
+                ...data.products.filter((p) => p.recommended),
+                ...data.products.filter((p) => !p.recommended),
+              ].map((product) => (
+                <ProductSelectionCard key={product.name} product={product} />
+              ))}
+            </div>
+
+            {/* Not finding what you need */}
+            <p className="text-center text-xs text-gray-400 pt-2">
+              לא מצאת מה שחיפשת?{" "}
+              <a href="/" className="text-blue-500 hover:underline">
+                חזור לחיפוש
               </a>
-            ))}
-          </div>
-        </section>
-
-        {/* Import calculator */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            Import cost calculator
-          </h2>
-          <ImportCalculator />
-        </section>
-
-        {/* Consumer rights */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            Your rights as an Israeli consumer
-          </h2>
-          <div className="border border-gray-100 rounded-xl divide-y divide-gray-100">
-            {[
-              {
-                title: "14-day return (online)",
-                body: "Online purchases may be returned within 14 days of delivery, no questions asked. Full refund minus shipping.",
-              },
-              {
-                title: "7-day return (in-store)",
-                body: "Physical store purchases over ₪50 can be returned within 7 days, unused and in original packaging.",
-              },
-              {
-                title: "1-year minimum warranty",
-                body: "Electronics must carry a minimum 1-year warranty. The retailer (not just the manufacturer) is legally responsible.",
-              },
-              {
-                title: "Prices must include VAT",
-                body: "All displayed prices must include 17% VAT by law. The displayed price is the legally binding price.",
-              },
-              {
-                title: "Interest-free installments",
-                body: "Retailers above a revenue threshold must offer at least 3 interest-free payments (tashlumim) for purchases over ₪500.",
-              },
-            ].map(({ title, body }) => (
-              <div key={title} className="px-5 py-4">
-                <p className="text-sm font-medium text-gray-800">{title}</p>
-                <p className="text-xs text-gray-500 mt-1">{body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Best time to buy */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            Best time to buy
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { period: "Black Friday (Nov)", tip: "15–40% off. Israeli retailers participate heavily." },
-              { period: "Singles Day (11.11)", tip: "Best for AliExpress purchases." },
-              { period: "Model changeovers", tip: "Old models drop 20–30% when new ones launch." },
-            ].map(({ period, tip }) => (
-              <div key={period} className="bg-gray-50 rounded-lg px-4 py-3">
-                <p className="text-sm font-medium text-gray-800">{period}</p>
-                <p className="text-xs text-gray-500 mt-1">{tip}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+            </p>
+          </>
+        ) : null}
       </main>
 
       <footer className="border-t border-gray-100 py-5 text-center text-xs text-gray-400">

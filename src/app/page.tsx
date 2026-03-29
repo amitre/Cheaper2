@@ -7,12 +7,14 @@ async function handleSearch(formData: FormData) {
   if (query) redirect(`/search?q=${encodeURIComponent(query)}`);
 }
 
-const examples = [
-  "Samsung Galaxy S25",
-  "Sony WH-1000XM5",
-  "MacBook Air M3",
-  "Dyson V15",
-];
+async function handleResearch(formData: FormData) {
+  "use server";
+  const query = formData.get("q")?.toString().trim();
+  if (query) redirect(`/research?q=${encodeURIComponent(query)}`);
+}
+
+const searchExamples = ["Samsung Galaxy S25", "Sony WH-1000XM5", "MacBook Air M3"];
+const researchExamples = ["טוחן אשפה", "מזגן לחדר", "מקרר קטן", "אוזניות"];
 
 export default function Home() {
   const featured = retailers.filter((r) =>
@@ -21,7 +23,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <header className="border-b border-gray-100 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
           <span className="text-xl font-bold text-blue-600">Cheaper2</span>
@@ -29,49 +30,88 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-20">
-        <div className="max-w-xl w-full text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Find the best price in Israel
-          </h1>
-          <p className="text-gray-500 mb-10">
-            Compare across Zap, KSP, iDigital, Ivory, Bug, and more — in seconds.
-          </p>
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
+        <div className="max-w-xl w-full">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">
+              Find the best price in Israel
+            </h1>
+            <p className="text-gray-500">
+              Know what you want? Search directly. Not sure? Let us guide you.
+            </p>
+          </div>
 
-          {/* Search form */}
-          <form action={handleSearch} className="flex gap-2">
-            <input
-              name="q"
-              type="text"
-              placeholder="Search a product or model number..."
-              autoFocus
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
-            <button
-              type="submit"
-              className="px-5 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              Compare
-            </button>
-          </form>
-
-          {/* Examples */}
-          <div className="flex flex-wrap gap-2 justify-center mt-4">
-            {examples.map((ex) => (
-              <a
-                key={ex}
-                href={`/search?q=${encodeURIComponent(ex)}`}
-                className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full transition-colors"
+          {/* Know what you want */}
+          <div className="border border-gray-100 rounded-2xl p-5 shadow-sm mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+              I know what I want
+            </p>
+            <form action={handleSearch} className="flex gap-2">
+              <input
+                name="q"
+                type="text"
+                placeholder="Product name or model number..."
+                autoFocus
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shrink-0"
               >
-                {ex}
-              </a>
-            ))}
+                Compare
+              </button>
+            </form>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {searchExamples.map((ex) => (
+                <a
+                  key={ex}
+                  href={`/search?q=${encodeURIComponent(ex)}`}
+                  className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full transition-colors"
+                >
+                  {ex}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Help me choose */}
+          <div className="border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
+              Help me choose
+            </p>
+            <p className="text-xs text-gray-400 mb-3">
+              Describe what you need — we&apos;ll ask a few questions and recommend the right models.
+            </p>
+            <form action={handleResearch} className="flex gap-2">
+              <input
+                name="q"
+                type="text"
+                placeholder="e.g. מזגן, טוחן אשפה, אוזניות..."
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shrink-0"
+              >
+                Chat
+              </button>
+            </form>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {researchExamples.map((ex) => (
+                <a
+                  key={ex}
+                  href={`/research?q=${encodeURIComponent(ex)}`}
+                  className="text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors"
+                >
+                  {ex}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Retailer pills */}
-        <div className="mt-16 max-w-xl w-full">
+        <div className="mt-12 max-w-xl w-full">
           <p className="text-xs text-gray-400 text-center mb-4 uppercase tracking-wider">
             Searches across
           </p>
@@ -91,7 +131,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-gray-100 py-5 text-center text-xs text-gray-400">
         Prices include 17% VAT · All prices in NIS
       </footer>

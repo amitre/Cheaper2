@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { retailers } from "@/lib/retailers";
+import { getPrices } from "@/lib/prices";
 import ImportCalculator from "@/components/ImportCalculator";
 
 interface Props {
@@ -24,9 +25,20 @@ export default async function ComparePage({ searchParams }: Props) {
 
   const hasPriceRange = priceMin > 0 && priceMax > 0;
 
+  let prices: Awaited<ReturnType<typeof getPrices>> = [];
+  try {
+    prices = await getPrices(name || searchQuery, searchQuery);
+  } catch {
+    // fallback — show empty, links still work
+  }
+
+  // Sort cheapest first
+  prices.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+
+  const cheapest = prices[0];
+
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <header className="border-b border-gray-100 px-6 py-4 sticky top-0 bg-white z-10">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <a href="/" className="text-lg font-bold text-blue-600 shrink-0">
@@ -59,57 +71,92 @@ export default async function ComparePage({ searchParams }: Props) {
           )}
         </div>
 
-        {/* Retailer comparison */}
+        {/* Price comparison table */}
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            השוואת מחירים באתרים
+            השוואת מחירים
           </h2>
-          <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-            {retailers.map((retailer) => (
-              <a
-                key={retailer.name}
-                href={retailer.searchUrl(searchQuery)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {retailer.name}
-                    </span>
-                    {retailer.badge && (
-                      <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full">
-                        {retailer.badge}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {retailer.description}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-300 group-hover:text-blue-500 transition-colors shrink-0">
-                  <span>ראה מחיר</span>
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </div>
-              </a>
-            ))}
-          </div>
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            לחץ על כל אתר לראות מחיר עדכני בזמן אמת
-          </p>
+
+          {prices.length > 0 ? (
+            <>
+              <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
+                {prices.map((item) => {
+                  const retailer = retailers.find((r) => r.name === item.retailerName);
+                  const isCheapest = item.retailerName === cheapest?.retailerName;
+
+                  return (
+                    <a
+                      key={item.retailerName}
+                      href={retailer?.searchUrl(searchQuery) ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group ${
+                        isCheapest ? "bg-green-50 hover:bg-green-50" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-gray-900">
+                              {item.retailerName}
+                            </span>
+                            {isCheapest && (
+                              <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
+                                הזול ביותר
+                              </span>
+                            )}
+                            {retailer?.badge && !isCheapest && (
+                              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full">
+                                {retailer.badge}
+                              </span>
+                            )}
+                          </div>
+                          {item.note && (
+                            <p className="text-xs text-gray-400 mt-0.5">{item.note}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-lg font-bold ${isCheapest ? "text-green-700" : "text-gray-800"}`}>
+                          ₪{item.price!.toLocaleString()}
+                        </span>
+                        <svg
+                          className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0"
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-2 text-center" dir="rtl">
+                * המחירים משוערים ועשויים להשתנות — לחץ על חנות לאימות המחיר העדכני
+              </p>
+            </>
+          ) : (
+            /* Fallback if API failed */
+            <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
+              {retailers.map((retailer) => (
+                <a
+                  key={retailer.name}
+                  href={retailer.searchUrl(searchQuery)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
+                >
+                  <span className="font-medium text-sm text-gray-900 group-hover:text-blue-600 transition-colors">
+                    {retailer.name}
+                  </span>
+                  <span className="text-xs text-gray-400 group-hover:text-blue-500 transition-colors">
+                    ראה מחיר ←
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Import calculator */}
@@ -118,25 +165,6 @@ export default async function ComparePage({ searchParams }: Props) {
             מחשבון ייבוא מחו&quot;ל
           </h2>
           <ImportCalculator />
-        </section>
-
-        {/* Consumer rights summary */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            זכויות הצרכן שלך
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { title: "החזרה 14 יום (אונליין)", body: "ביטול עסקה תוך 14 יום מקבלה, ללא צורך בהסבר." },
-              { title: "אחריות שנה", body: "אחריות מינימלית של שנה על מוצרי אלקטרוניקה. המוכר אחראי — לא רק היצרן." },
-              { title: "מחיר כולל מע\"מ", body: "כל המחירים חייבים לכלול מע\"מ 17% לפי חוק." },
-            ].map(({ title, body }) => (
-              <div key={title} className="bg-gray-50 rounded-xl px-4 py-3" dir="rtl">
-                <p className="text-xs font-semibold text-gray-800 mb-1">{title}</p>
-                <p className="text-xs text-gray-500">{body}</p>
-              </div>
-            ))}
-          </div>
         </section>
       </main>
 

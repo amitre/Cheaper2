@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { generateProducts } from "@/lib/products";
 import ProductSelectionCard from "@/components/ProductSelectionCard";
+import SearchSubmitButton from "@/components/SearchSubmitButton";
 
 async function handleSearch(formData: FormData) {
   "use server";
@@ -44,12 +45,11 @@ export default async function SearchPage({ searchParams }: Props) {
               placeholder="Search a product..."
               className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button
-              type="submit"
+            <SearchSubmitButton
+              label="Search"
+              loadingLabel="מחפש..."
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              Search
-            </button>
+            />
           </form>
         </div>
       </header>

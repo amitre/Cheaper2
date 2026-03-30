@@ -21,9 +21,12 @@ const RETAILER_NAMES = retailers.map((r) => r.name).join(", ");
 
 export async function getPrices(
   productName: string,
-  searchQuery: string
+  searchQuery: string,
+  availableAt: string[] = []
 ): Promise<RetailerPrice[]> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const retailersToCheck = availableAt.length > 0 ? availableAt.join(", ") : RETAILER_NAMES;
 
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",
@@ -35,17 +38,15 @@ export async function getPrices(
 Given a product, return estimated current prices at each retailer in NIS (including 17% VAT).
 
 RULES:
-- Set available=false and price=null if the retailer does NOT carry this specific product.
-- Be CONSERVATIVE: when in doubt, set available=false. It is better to show fewer retailers than to send users to stores that don't carry the product.
-- Consider each retailer's actual product category: Home Center sells home improvement/appliances (not niche imports), payngo/Machsanei Hashmal sells mainstream electronics/appliances, KSP/Bug/Ivory/iDigital sell computers & consumer electronics, Zap is a price comparison index.
-- Only mark available=true if you are reasonably confident this specific product (or a direct equivalent) is actually stocked and sold by that Israeli retailer.
-- Never mark available=true just because a retailer "might" carry it — require actual confidence.
+- These retailers are known to carry this product — provide a realistic price for each.
+- Set available=false and price=null only if you have strong reason to believe a specific listed retailer does NOT stock this exact product.
+- Prices must be realistic NIS amounts based on your knowledge of the Israeli market.
 - The disclaimer field must be in Hebrew, noting prices are estimates and should be verified.`,
     messages: [
       {
         role: "user",
         content: `Product: "${productName}" (search term: "${searchQuery}")
-Retailers to check: ${RETAILER_NAMES}`,
+Retailers to check: ${retailersToCheck}`,
       },
     ],
   });

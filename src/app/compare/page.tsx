@@ -10,6 +10,7 @@ interface Props {
     q?: string;
     min?: string;
     max?: string;
+    retailers?: string;
   }>;
 }
 
@@ -20,6 +21,7 @@ export default async function ComparePage({ searchParams }: Props) {
   const searchQuery = params.q?.trim() ?? name;
   const priceMin = parseInt(params.min ?? "0") || 0;
   const priceMax = parseInt(params.max ?? "0") || 0;
+  const availableAt = params.retailers ? params.retailers.split(",").map((r) => r.trim()).filter(Boolean) : [];
 
   if (!searchQuery) redirect("/");
 
@@ -27,7 +29,7 @@ export default async function ComparePage({ searchParams }: Props) {
 
   let prices: Awaited<ReturnType<typeof getPrices>> = [];
   try {
-    prices = await getPrices(name || searchQuery, searchQuery);
+    prices = await getPrices(name || searchQuery, searchQuery, availableAt);
   } catch (err) {
     console.error("[compare] getPrices failed:", err);
     // fallback — show empty, links still work

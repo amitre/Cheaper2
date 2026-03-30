@@ -12,6 +12,7 @@ const ProductSchema = z.object({
   name: z.string(),
   brand: z.string(),
   searchQuery: z.string(),
+  availableAt: z.array(z.string()),
   priceMin: z.number(),
   priceMax: z.number(),
   keySpecs: z.array(KeySpecSchema),
@@ -31,13 +32,15 @@ const RecommendationResponseSchema = z.object({
 export type Product = z.infer<typeof ProductSchema>;
 export type RecommendationResponse = z.infer<typeof RecommendationResponseSchema>;
 
+const RETAILER_LIST = "Zap, KSP, iDigital, Ivory, Bug, Home Center, Machsanei Hashmal, Super-Pharm";
+
 const SYSTEM_PROMPT = `
 You are an expert product advisor for Israeli consumers.
 
 RULES (non-negotiable):
 1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW.
 2. Product names and brand use the official English names.
-3. searchQuery must be in English — the brand name and model as it appears on Israeli retailer sites (e.g. "InSinkErator Badger 5", "Samsung Galaxy S24", "Dyson V15"). This is used to build search URLs on Israeli retail sites.
+3. searchQuery must be in English — the brand name and model as it appears on Israeli retailer sites (e.g. "Samsung Galaxy S24", "Dyson V15"). This is used to build search URLs on Israeli retail sites.
 4. Prices in NIS reflect actual current Israeli retail prices including 17% VAT.
 5. Recommend 2–4 products at different price points.
 6. Mark exactly ONE product as recommended=true (the best overall value for most users).
@@ -45,6 +48,7 @@ RULES (non-negotiable):
 8. popularity values: "top_seller" = Zap bestseller, "popular" = widely purchased, "premium" = high-end, "budget_pick" = best value.
 9. mainDifferentiator = the single most important advantage this product has over the others (Hebrew, 1 sentence).
 10. categoryTip = one practical buying tip specific to this product category in Israel (Hebrew, 1–2 sentences).
+11. availableAt = list of retailer names (from: ${RETAILER_LIST}) that actually stock this product in Israel. Only include retailers you are confident carry this product. If you cannot name at least one retailer, do NOT include the product — omit it entirely.
 `.trim();
 
 export async function generateProducts(query: string): Promise<RecommendationResponse> {

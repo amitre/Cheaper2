@@ -50,14 +50,14 @@ export const retailers: Retailer[] = [
   {
     name: "Home Center",
     url: "https://www.homecenter.co.il",
-    searchUrl: (q) => `https://www.homecenter.co.il/homecenter/html/main/search.html?q=${encodeURIComponent(q)}`,
+    searchUrl: (q) => `https://www.homecenter.co.il/search?q=${encodeURIComponent(q)}`,
     category: ["appliances", "home"],
     description: "Large home improvement & appliances retailer.",
   },
   {
     name: "Machsanei Hashmal",
-    url: "https://www.mahsane.co.il",
-    searchUrl: (q) => `https://www.mahsane.co.il/search?q=${encodeURIComponent(q)}`,
+    url: "https://www.payngo.co.il",
+    searchUrl: (q) => `https://www.payngo.co.il/catalogsearch/result/?q=${encodeURIComponent(q)}`,
     category: ["appliances"],
     description: "Electrical appliance warehouse. Competitive on large appliances.",
   },

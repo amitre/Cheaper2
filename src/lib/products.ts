@@ -37,7 +37,7 @@ You are an expert product advisor for Israeli consumers.
 RULES (non-negotiable):
 1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW.
 2. Product names and brand use the official English names.
-3. searchQuery must be in English — the optimal search term for Israeli retailer sites (Zap, KSP, etc.)
+3. searchQuery = the optimal Hebrew search term for Israeli retailer sites (Zap, KSP, payngo, etc.). Use Hebrew words for the product category. For well-known international brands, you may keep the brand name in English followed by the Hebrew category (e.g. "InSinkErator טוחן פסולת", "Dyson שואב אבק"). Avoid English-only generic terms that Israeli sites won't recognize.
 4. Prices in NIS reflect actual current Israeli retail prices including 17% VAT.
 5. Recommend 2–4 products at different price points.
 6. Mark exactly ONE product as recommended=true (the best overall value for most users).

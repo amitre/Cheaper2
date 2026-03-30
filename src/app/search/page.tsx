@@ -19,12 +19,13 @@ export default async function SearchPage({ searchParams }: Props) {
   if (!query) redirect("/");
 
   let data;
-  let error = false;
+  let errorMessage: string | null = null;
 
   try {
     data = await generateProducts(query);
-  } catch {
-    error = true;
+  } catch (err) {
+    errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("generateProducts error:", errorMessage);
   }
 
   return (
@@ -54,12 +55,13 @@ export default async function SearchPage({ searchParams }: Props) {
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-8 space-y-6">
-        {error ? (
+        {errorMessage !== null ? (
           /* Fallback when API unavailable */
           <div className="text-center py-12">
             <p className="text-gray-500 text-sm mb-2">
               לא ניתן לטעון המלצות כרגע.
             </p>
+            <p className="text-xs text-red-400 mb-3 font-mono">{errorMessage}</p>
             <a
               href={`/compare?q=${encodeURIComponent(query)}&name=${encodeURIComponent(query)}&brand=&min=0&max=0`}
               className="text-blue-600 text-sm hover:underline"

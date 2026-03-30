@@ -21,7 +21,7 @@ export const retailers: Retailer[] = [
   {
     name: "KSP",
     url: "https://ksp.co.il",
-    searchUrl: (q) => `https://ksp.co.il/search/${encodeURIComponent(q)}`,
+    searchUrl: (q) => `https://ksp.co.il/mob/cat/?search=${encodeURIComponent(q)}`,
     category: ["electronics", "computers"],
     description: "Israel's largest electronics retailer. Price-match guarantee.",
     badge: "Price match",
@@ -43,7 +43,7 @@ export const retailers: Retailer[] = [
   {
     name: "Bug",
     url: "https://www.bug.co.il",
-    searchUrl: (q) => `https://www.bug.co.il/search?s=${encodeURIComponent(q)}`,
+    searchUrl: (q) => `https://www.bug.co.il/search?q=${encodeURIComponent(q)}`,
     category: ["computers"],
     description: "Strong in PC components. Has a used/refurbished section.",
   },
@@ -63,8 +63,8 @@ export const retailers: Retailer[] = [
   },
   {
     name: "Super-Pharm",
-    url: "https://www.super-pharm.co.il",
-    searchUrl: (q) => `https://www.super-pharm.co.il/search?q=${encodeURIComponent(q)}`,
+    url: "https://shop.super-pharm.co.il",
+    searchUrl: (q) => `https://shop.super-pharm.co.il/search?q=${encodeURIComponent(q)}`,
     category: ["pharmacy"],
     description: "Israel's largest pharmacy. Frequent 1+1 deals.",
   },

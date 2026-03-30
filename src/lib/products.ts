@@ -53,12 +53,10 @@ export async function generateProducts(query: string): Promise<RecommendationRes
   });
 
   const response = await client.messages.parse({
-    model: "claude-opus-4-6",
+    model: "claude-haiku-4-5",
     max_tokens: 4096,
-    thinking: { type: "adaptive" },
     output_config: {
       format: zodOutputFormat(RecommendationResponseSchema),
-      effort: "high",
     },
     system: SYSTEM_PROMPT,
     messages: [

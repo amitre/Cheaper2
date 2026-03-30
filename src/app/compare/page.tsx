@@ -28,7 +28,8 @@ export default async function ComparePage({ searchParams }: Props) {
   let prices: Awaited<ReturnType<typeof getPrices>> = [];
   try {
     prices = await getPrices(name || searchQuery, searchQuery);
-  } catch {
+  } catch (err) {
+    console.error("[compare] getPrices failed:", err);
     // fallback — show empty, links still work
   }
 
@@ -137,24 +138,12 @@ export default async function ComparePage({ searchParams }: Props) {
               </p>
             </>
           ) : (
-            /* Fallback if API failed */
-            <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-              {retailers.map((retailer) => (
-                <a
-                  key={retailer.name}
-                  href={retailer.searchUrl(searchQuery)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
-                >
-                  <span className="font-medium text-sm text-gray-900 group-hover:text-blue-600 transition-colors">
-                    {retailer.name}
-                  </span>
-                  <span className="text-xs text-gray-400 group-hover:text-blue-500 transition-colors">
-                    ראה מחיר ←
-                  </span>
-                </a>
-              ))}
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-5 py-5 text-right" dir="rtl">
+              <p className="font-semibold text-amber-800 text-sm mb-1">המוצר אינו זמין בחנויות ישראליות</p>
+              <p className="text-xs text-amber-700">
+                לא מצאנו את המוצר הזה אצל הקמעונאים הישראלים שאנו עוקבים אחריהם.
+                ייתכן שמדובר במוצר ייבוא — השתמש במחשבון למטה כדי לחשב את עלות הייבוא מאמזון / AliExpress.
+              </p>
             </div>
           )}
         </section>

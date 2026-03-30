@@ -33,9 +33,13 @@ export async function getPrices(
     },
     system: `You are a pricing expert for the Israeli retail market.
 Given a product, return estimated current prices at each retailer in NIS (including 17% VAT).
-- If the retailer does not carry this product, set available=false and price=null.
-- Prices must be realistic NIS amounts based on your knowledge of the Israeli market.
-- Only mark available=true if you have reasonable confidence the retailer carries this product.
+
+RULES:
+- Set available=false and price=null if the retailer does NOT carry this specific product.
+- Be CONSERVATIVE: when in doubt, set available=false. It is better to show fewer retailers than to send users to stores that don't carry the product.
+- Consider each retailer's actual product category: Home Center sells home improvement/appliances (not niche imports), payngo/Machsanei Hashmal sells mainstream electronics/appliances, KSP/Bug/Ivory/iDigital sell computers & consumer electronics, Zap is a price comparison index.
+- Only mark available=true if you are reasonably confident this specific product (or a direct equivalent) is actually stocked and sold by that Israeli retailer.
+- Never mark available=true just because a retailer "might" carry it — require actual confidence.
 - The disclaimer field must be in Hebrew, noting prices are estimates and should be verified.`,
     messages: [
       {

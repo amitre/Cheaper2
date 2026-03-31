@@ -97,10 +97,10 @@ export default async function SearchPage({ searchParams }: Props) {
 
             {/* Product cards grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Recommended first, only show products available in Israeli stores */}
+              {/* Recommended first */}
               {[
-                ...data.products.filter((p) => p.recommended && p.availableAt.length > 0),
-                ...data.products.filter((p) => !p.recommended && p.availableAt.length > 0),
+                ...data.products.filter((p) => p.recommended),
+                ...data.products.filter((p) => !p.recommended),
               ].map((product) => (
                 <ProductSelectionCard key={product.name} product={product} />
               ))}

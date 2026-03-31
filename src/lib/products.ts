@@ -12,7 +12,7 @@ const ProductSchema = z.object({
   name: z.string(),
   brand: z.string(),
   searchQuery: z.string(),
-  availableAt: z.array(z.string()),
+  zapUrl: z.string(),
   priceMin: z.number(),
   priceMax: z.number(),
   keySpecs: z.array(KeySpecSchema),
@@ -32,37 +32,103 @@ const RecommendationResponseSchema = z.object({
 export type Product = z.infer<typeof ProductSchema>;
 export type RecommendationResponse = z.infer<typeof RecommendationResponseSchema>;
 
-const RETAILER_LIST = "Zap, KSP, iDigital, Ivory, Bug, Home Center, Machsanei Hashmal, Super-Pharm";
+const ZAP_SYSTEM_PROMPT = `
+You are an expert product advisor for Israeli consumers.
+You will be given Zap.co.il search results to extract real product data.
 
-const SYSTEM_PROMPT = `
+RULES (non-negotiable):
+1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW.
+2. Product names and brand use the official English names as they appear on Zap.
+3. searchQuery = the product name as it appears on Zap (English brand + model).
+4. zapUrl = the direct URL to this product's page on Zap.co.il (e.g. https://www.zap.co.il/model.aspx?modelid=12345). Extract from Zap search results. Empty string if not found.
+5. Prices in NIS as shown on Zap (include VAT).
+6. ONLY include products that actually appear in the Zap search results. Recommend 2–4 products.
+7. Mark exactly ONE product as recommended=true (best overall value).
+8. Set isKeyDiff=true only for specs that clearly differentiate this product from others.
+9. popularity: "top_seller" = Zap bestseller, "popular" = widely purchased, "premium" = high-end, "budget_pick" = best value.
+10. mainDifferentiator = single most important advantage over the others (Hebrew, 1 sentence).
+11. categoryTip = one practical buying tip for this category in Israel (Hebrew, 1–2 sentences).
+`.trim();
+
+const AI_FALLBACK_PROMPT = `
 You are an expert product advisor for Israeli consumers.
 
 RULES (non-negotiable):
 1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW.
 2. Product names and brand use the official English names.
-3. searchQuery must be in English — the brand name and model as it appears on Israeli retailer sites (e.g. "Samsung Galaxy S24", "Dyson V15"). This is used to build search URLs on Israeli retail sites.
-4. Prices in NIS reflect actual current Israeli retail prices including 17% VAT.
-5. Recommend 2–4 products at different price points.
-6. Mark exactly ONE product as recommended=true (the best overall value for most users).
-7. Set isKeyDiff=true only for specs that clearly differentiate this product from the others in the list.
-8. popularity values: "top_seller" = Zap bestseller, "popular" = widely purchased, "premium" = high-end, "budget_pick" = best value.
-9. mainDifferentiator = the single most important advantage this product has over the others (Hebrew, 1 sentence).
-10. categoryTip = one practical buying tip specific to this product category in Israel (Hebrew, 1–2 sentences).
-11. availableAt = list of retailer names (from: ${RETAILER_LIST}) that actually stock this product in Israel. Be VERY conservative — only list a retailer if you have strong confidence they carry this exact product or a close equivalent. Ask yourself: "Would I find this specific product on this Israeli retailer's website today?" If unsure, leave the retailer out. If you cannot name at least one retailer with strong confidence, set availableAt to an empty array and do NOT include the product in the recommendations. Products that are primarily sold in foreign markets (USA, Europe) and not distributed in Israel must be excluded.
+3. searchQuery = brand + model in English as sold in Israel.
+4. zapUrl = empty string.
+5. Prices in NIS reflect actual Israeli retail prices including 17% VAT.
+6. Recommend 2–4 products that are actually sold in Israeli stores. Do not recommend niche imports.
+7. Mark exactly ONE product as recommended=true (best overall value).
+8. Set isKeyDiff=true only for specs that clearly differentiate this product from others.
+9. popularity: "top_seller" = Zap bestseller, "popular" = widely purchased, "premium" = high-end, "budget_pick" = best value.
+10. mainDifferentiator = single most important advantage over the others (Hebrew, 1 sentence).
+11. categoryTip = one practical buying tip for this category in Israel (Hebrew, 1–2 sentences).
 `.trim();
 
-export async function generateProducts(query: string): Promise<RecommendationResponse> {
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
+async function generateProductsFromZap(
+  query: string,
+  client: Anthropic
+): Promise<RecommendationResponse> {
+  const zapSearchUrl = `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(query)}`;
 
+  const messages: Anthropic.MessageParam[] = [
+    {
+      role: "user",
+      content: `The user wants to buy: "${query}"\n\nFetch this Zap.co.il search page and extract the top products:\n${zapSearchUrl}\n\nReturn 2–4 products that appear in the results with their details, differences, and Zap product page URLs.`,
+    },
+  ];
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 4096,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch" }],
+      output_config: {
+        format: zodOutputFormat(RecommendationResponseSchema),
+      },
+      system: ZAP_SYSTEM_PROMPT,
+      messages,
+    });
+
+    if (response.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: response.content });
+      continue;
+    }
+
+    if (response.stop_reason === "end_turn") {
+      const textBlock = response.content.find(
+        (b): b is Anthropic.TextBlock => b.type === "text"
+      );
+      if (textBlock) {
+        const parsed = RecommendationResponseSchema.safeParse(
+          JSON.parse(textBlock.text)
+        );
+        if (parsed.success && parsed.data.products.length > 0) {
+          return parsed.data;
+        }
+      }
+    }
+
+    throw new Error(`Zap fetch ended with stop_reason: ${response.stop_reason}`);
+  }
+
+  throw new Error("Zap fetch: max attempts exceeded");
+}
+
+async function generateProductsFromAI(
+  query: string,
+  client: Anthropic
+): Promise<RecommendationResponse> {
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",
     max_tokens: 4096,
     output_config: {
       format: zodOutputFormat(RecommendationResponseSchema),
     },
-    system: SYSTEM_PROMPT,
+    system: AI_FALLBACK_PROMPT,
     messages: [
       {
         role: "user",
@@ -72,8 +138,21 @@ export async function generateProducts(query: string): Promise<RecommendationRes
   });
 
   if (!response.parsed_output) {
-    throw new Error("Failed to parse product recommendations");
+    throw new Error("Failed to parse AI product recommendations");
   }
 
   return response.parsed_output;
+}
+
+export async function generateProducts(
+  query: string
+): Promise<RecommendationResponse> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  try {
+    return await generateProductsFromZap(query, client);
+  } catch (err) {
+    console.warn("[products] Zap fetch failed, falling back to AI:", err instanceof Error ? err.message : err);
+    return await generateProductsFromAI(query, client);
+  }
 }

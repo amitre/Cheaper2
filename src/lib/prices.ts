@@ -8,6 +8,7 @@ const RetailerPriceSchema = z.object({
   price: z.number().nullable(),
   available: z.boolean(),
   note: z.string().optional(),
+  url: z.string().optional(), // Direct link from Zap to the retailer product page
 });
 
 const PriceResponseSchema = z.object({
@@ -19,15 +20,69 @@ export type RetailerPrice = z.infer<typeof RetailerPriceSchema>;
 
 const RETAILER_NAMES = retailers.map((r) => r.name).join(", ");
 
-export async function getPrices(
+async function getPricesFromZap(
+  productName: string,
+  zapUrl: string,
+  client: Anthropic
+): Promise<RetailerPrice[]> {
+  const messages: Anthropic.MessageParam[] = [
+    {
+      role: "user",
+      content: `Fetch this Zap product page and extract all retailer prices:\n${zapUrl}\n\nProduct: "${productName}"\nReturn every retailer listed with their price and direct link to the product on their site.`,
+    },
+  ];
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 2048,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch" }],
+      output_config: {
+        format: zodOutputFormat(PriceResponseSchema),
+      },
+      system: `You are a price extraction expert for the Israeli market.
+Fetch the Zap product page and extract all retailer prices shown.
+- retailerName = the retailer's name as shown on Zap (in Hebrew or English)
+- price = the price in NIS (number only, no ₪ sign)
+- available = true for all retailers with a valid price
+- url = the direct link to the product page on that retailer's site (if shown on Zap)
+- disclaimer must be in Hebrew: "המחירים נלקחו מזאפ ועשויים להשתנות — לחץ לאימות"`,
+      messages,
+    });
+
+    if (response.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: response.content });
+      continue;
+    }
+
+    if (response.stop_reason === "end_turn") {
+      const textBlock = response.content.find(
+        (b): b is Anthropic.TextBlock => b.type === "text"
+      );
+      if (textBlock) {
+        const parsed = PriceResponseSchema.safeParse(
+          JSON.parse(textBlock.text)
+        );
+        if (parsed.success) {
+          return parsed.data.prices.filter(
+            (p) => p.available && p.price !== null
+          );
+        }
+      }
+    }
+
+    throw new Error(`Zap prices: unexpected stop_reason ${response.stop_reason}`);
+  }
+
+  throw new Error("Zap prices: max attempts exceeded");
+}
+
+async function getPricesFromAI(
   productName: string,
   searchQuery: string,
-  availableAt: string[] = []
+  client: Anthropic
 ): Promise<RetailerPrice[]> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  const retailersToCheck = availableAt.length > 0 ? availableAt.join(", ") : RETAILER_NAMES;
-
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",
     max_tokens: 1024,
@@ -36,22 +91,38 @@ export async function getPrices(
     },
     system: `You are a pricing expert for the Israeli retail market.
 Given a product, return estimated current prices at each retailer in NIS (including 17% VAT).
-
-RULES:
-- These retailers are known to carry this product — provide a realistic price for each.
-- Set available=false and price=null only if you have strong reason to believe a specific listed retailer does NOT stock this exact product.
-- Prices must be realistic NIS amounts based on your knowledge of the Israeli market.
-- The disclaimer field must be in Hebrew, noting prices are estimates and should be verified.`,
+- Set available=false and price=null if the retailer does NOT carry this product.
+- Be conservative: when in doubt, set available=false.
+- The disclaimer field must be in Hebrew, noting prices are estimates.`,
     messages: [
       {
         role: "user",
-        content: `Product: "${productName}" (search term: "${searchQuery}")
-Retailers to check: ${retailersToCheck}`,
+        content: `Product: "${productName}" (search term: "${searchQuery}")\nRetailers to check: ${RETAILER_NAMES}`,
       },
     ],
   });
 
   if (!response.parsed_output) throw new Error("Failed to parse prices");
 
-  return response.parsed_output.prices.filter((p) => p.available && p.price !== null);
+  return response.parsed_output.prices.filter(
+    (p) => p.available && p.price !== null
+  );
+}
+
+export async function getPrices(
+  productName: string,
+  searchQuery: string,
+  zapUrl?: string
+): Promise<RetailerPrice[]> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  if (zapUrl) {
+    try {
+      return await getPricesFromZap(productName, zapUrl, client);
+    } catch (err) {
+      console.warn("[prices] Zap fetch failed, falling back to AI:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  return await getPricesFromAI(productName, searchQuery, client);
 }

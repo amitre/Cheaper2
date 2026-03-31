@@ -10,7 +10,7 @@ interface Props {
     q?: string;
     min?: string;
     max?: string;
-    retailers?: string;
+    zapUrl?: string;
   }>;
 }
 
@@ -21,7 +21,7 @@ export default async function ComparePage({ searchParams }: Props) {
   const searchQuery = params.q?.trim() ?? name;
   const priceMin = parseInt(params.min ?? "0") || 0;
   const priceMax = parseInt(params.max ?? "0") || 0;
-  const availableAt = params.retailers ? params.retailers.split(",").map((r) => r.trim()).filter(Boolean) : [];
+  const zapUrl = params.zapUrl?.trim() ?? "";
 
   if (!searchQuery) redirect("/");
 
@@ -29,10 +29,9 @@ export default async function ComparePage({ searchParams }: Props) {
 
   let prices: Awaited<ReturnType<typeof getPrices>> = [];
   try {
-    prices = await getPrices(name || searchQuery, searchQuery, availableAt);
+    prices = await getPrices(name || searchQuery, searchQuery, zapUrl || undefined);
   } catch (err) {
     console.error("[compare] getPrices failed:", err);
-    // fallback — show empty, links still work
   }
 
   // Sort cheapest first
@@ -90,7 +89,7 @@ export default async function ComparePage({ searchParams }: Props) {
                   return (
                     <a
                       key={item.retailerName}
-                      href={retailer?.searchUrl(searchQuery) ?? "#"}
+                      href={item.url || retailer?.searchUrl(searchQuery) || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group ${

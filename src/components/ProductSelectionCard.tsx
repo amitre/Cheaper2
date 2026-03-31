@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function ProductSelectionCard({ product }: Props) {
-  const compareUrl = `/compare?name=${encodeURIComponent(product.name)}&brand=${encodeURIComponent(product.brand)}&q=${encodeURIComponent(product.searchQuery)}&min=${product.priceMin}&max=${product.priceMax}&retailers=${encodeURIComponent(product.availableAt.join(","))}`;
+  const compareUrl = `/compare?name=${encodeURIComponent(product.name)}&brand=${encodeURIComponent(product.brand)}&q=${encodeURIComponent(product.searchQuery)}&min=${product.priceMin}&max=${product.priceMax}&zapUrl=${encodeURIComponent(product.zapUrl)}`;
 
   return (
     <div

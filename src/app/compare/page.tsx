@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { retailers } from "@/lib/retailers";
-import { getPrices } from "@/lib/prices";
 import ImportCalculator from "@/components/ImportCalculator";
 
 interface Props {
@@ -27,17 +25,10 @@ export default async function ComparePage({ searchParams }: Props) {
 
   const hasPriceRange = priceMin > 0 && priceMax > 0;
 
-  let prices: Awaited<ReturnType<typeof getPrices>> = [];
-  try {
-    prices = await getPrices(name || searchQuery, searchQuery, zapUrl || undefined);
-  } catch (err) {
-    console.error("[compare] getPrices failed:", err);
-  }
-
-  // Sort cheapest first
-  prices.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-
-  const cheapest = prices[0];
+  // Build the best Zap link available
+  const zapLink =
+    zapUrl ||
+    `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(name || searchQuery)}`;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -73,80 +64,33 @@ export default async function ComparePage({ searchParams }: Props) {
           )}
         </div>
 
-        {/* Price comparison table */}
+        {/* Zap price comparison */}
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
             השוואת מחירים
           </h2>
-
-          {prices.length > 0 ? (
-            <>
-              <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-                {prices.map((item) => {
-                  const retailer = retailers.find((r) => r.name === item.retailerName);
-                  const isCheapest = item.retailerName === cheapest?.retailerName;
-
-                  return (
-                    <a
-                      key={item.retailerName}
-                      href={item.url || retailer?.searchUrl(searchQuery) || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group ${
-                        isCheapest ? "bg-green-50 hover:bg-green-50" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm text-gray-900">
-                              {item.retailerName}
-                            </span>
-                            {isCheapest && (
-                              <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
-                                הזול ביותר
-                              </span>
-                            )}
-                            {retailer?.badge && !isCheapest && (
-                              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full">
-                                {retailer.badge}
-                              </span>
-                            )}
-                          </div>
-                          {item.note && (
-                            <p className="text-xs text-gray-400 mt-0.5">{item.note}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-lg font-bold ${isCheapest ? "text-green-700" : "text-gray-800"}`}>
-                          ₪{item.price!.toLocaleString()}
-                        </span>
-                        <svg
-                          className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0"
-                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round"
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-gray-400 mt-2 text-center" dir="rtl">
-                * המחירים משוערים ועשויים להשתנות — לחץ על חנות לאימות המחיר העדכני
+          <a
+            href={zapLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between px-5 py-5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors group"
+          >
+            <div dir="rtl">
+              <p className="font-semibold text-orange-900 text-sm">
+                ראה מחירים מכל החנויות בזאפ
               </p>
-            </>
-          ) : (
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-5 py-5 text-right" dir="rtl">
-              <p className="font-semibold text-amber-800 text-sm mb-1">המוצר אינו זמין בחנויות ישראליות</p>
-              <p className="text-xs text-amber-700">
-                לא מצאנו את המוצר הזה אצל הקמעונאים הישראלים שאנו עוקבים אחריהם.
-                ייתכן שמדובר במוצר ייבוא — השתמש במחשבון למטה כדי לחשב את עלות הייבוא מאמזון / AliExpress.
+              <p className="text-xs text-orange-700 mt-0.5">
+                זאפ משווה מחירים מכל הקמעונאים הישראלים בזמן אמת
               </p>
             </div>
-          )}
+            <svg
+              className="w-5 h-5 text-orange-400 group-hover:text-orange-600 transition-colors shrink-0"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
         </section>
 
         {/* Import calculator */}

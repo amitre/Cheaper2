@@ -21,7 +21,7 @@ const ProductSchema = z.object({
   popularityLabel: z.string(),
   recommended: z.boolean(),
   recommendationReason: z.string().optional(),
-  mainDifferentiator: z.string(),
+  mainDifferentiator: z.string().optional().default(""),
 });
 
 const RecommendationResponseSchema = z.object({

@@ -4,8 +4,10 @@ import { z } from "zod";
 import { ProductSchema } from "@/lib/products";
 
 const FirstTurnSchema = z.object({
-  question: z.string(), // First clarifying question in Hebrew
-  zapContext: z.string(), // Summary of Zap findings for use in subsequent turns
+  question: z.string(), // First clarifying question in Hebrew (about functional need, NOT price)
+  zapContext: z.string(), // Full product catalog extracted from Zap — used to answer user later
+  // Pre-planned second question if one is needed after the first answer (empty string = not needed)
+  secondQuestion: z.string(),
 });
 
 const SubsequentTurnSchema = z.object({
@@ -31,44 +33,60 @@ export type ChatApiResponse =
   | { type: "products"; products: z.infer<typeof ProductSchema>[]; categoryTip: string };
 
 const FIRST_TURN_SYSTEM = `
-You are a helpful product advisor for Israeli consumers using a chat interface.
+You are a product research agent for Israeli consumers.
 
-Your job:
-1. Fetch the Zap.co.il search page for the product the user wants
-2. Scan the results to understand what varieties, types, or key dimensions exist
-3. Ask the user ONE question in Hebrew about their functional need — NOT about budget or price
+YOUR TASK — do these steps in order:
 
-Good first questions (examples):
-- For a garbage disposal: "לכמה נפשות השימוש ביום בממוצע?" or "הכיור שלכם קטן/רגיל/גדול?"
-- For an air conditioner: "כמה מ״ר החדר שאתם רוצים לקרר?"
-- For headphones: "לאיזה שימוש עיקרי — עבודה מהבית, ספורט, נסיעות?"
-- For a washing machine: "כמה ק״ג כביסה אתם עושים בשבוע בערך?"
+STEP 1 — Find the full product catalog:
+  Fetch the Zap.co.il search results page for the query.
+  Look for a link to a category/models listing page (models.aspx or ctg.aspx).
+  Fetch that catalog page to see ALL available products with their full specs.
 
-Rules:
-- question must be in Hebrew, conversational, 1 sentence, about USE / NEED — NEVER about budget or price
-- zapContext must summarize what you found on Zap: main product variants, price range, top brands (e.g., "מצאתי 12 טוחני אשפה בזאפ בטווח ₪200–₪1,800, מותגים: InSinkErator, Franke, Emerson")
-- Keep it natural and friendly
+STEP 2 — Analyze differentiating dimensions:
+  Look at the product specs across the whole range — like an e-commerce filter sidebar.
+  Identify 2–4 dimensions that MOST differentiate products (e.g. motor power, noise level, capacity, usage type, connectivity, room size).
+  Determine which dimensions matter most for narrowing from the full range to 3 candidates.
+  Decide the MINIMUM number of questions needed (usually 1–2).
+  NEVER include price/budget as a dimension to ask about.
+
+STEP 3 — Plan and return:
+  question = first clarifying question in Hebrew about the most important functional dimension.
+    Keep it short, conversational, offering 2–4 concrete options if possible.
+    Example format: "האם אתם מעדיפים X, Y או Z?" or "כמה [dimension]?"
+  secondQuestion = the pre-planned second question to ask after getting the first answer (in Hebrew).
+    Set to empty string "" if one question is enough.
+  zapContext = the product catalog you extracted — formatted so it can be used later
+    to match products to the user's answers WITHOUT fetching Zap again.
+    Format each product on its own line:
+    "[brand] [model] | modelid=[ID or empty] | ₪[priceMin]–[priceMax] | [dim1]=[val] | [dim2]=[val] | ..."
+    Include ALL products you found, not just a summary.
 `.trim();
 
 const SUBSEQUENT_TURN_SYSTEM = `
-You are a helpful product advisor for Israeli consumers.
+You are a product advisor for Israeli consumers.
 
-Based on the conversation, decide:
-- If you still need ONE more functional clarification (max 2 questions total, never about price), set showProducts=false
-- Otherwise (you have enough info OR 2 questions were already asked), set showProducts=true
+You have a product catalog extracted from Zap (in zapContext).
+You have the conversation history showing what the user has told you about their needs.
 
-CRITICAL: Always return exactly 3 products when showProducts=true:
-1. The CHEAPEST available product on Zap that still meets the user's need (popularity="budget_pick")
-2. The MOST POPULAR / best-selling product (popularity="top_seller"), mark this as recommended=true
-3. A PREMIUM option with top features (popularity="premium")
+DECISION:
+- If the pre-planned secondQuestion was not yet asked AND it is non-empty AND you still need it, set showProducts=false and use it as your question.
+- Otherwise set showProducts=true and return exactly 3 products.
 
-Product field rules:
+SELECTING THE 3 PRODUCTS (when showProducts=true):
+  Filter the catalog using the user's answers to find products that match their stated needs.
+  From the matching products, pick:
+  1. The CHEAPEST matching product (popularity="budget_pick")
+  2. The best-balanced / most popular matching product (popularity="top_seller") — mark recommended=true
+  3. The highest-spec / premium matching product (popularity="premium")
+  If fewer than 3 products match, pick the closest alternatives from the catalog.
+
+PRODUCT FIELD RULES:
 1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW
-2. Product name and brand use official English names as on Zap
+2. name and brand = official English names exactly as on Zap
 3. searchQuery = brand + model in English as sold in Israel
-4. zapUrl = direct Zap model page URL (model.aspx?modelid=...) from zapContext, or empty string
-5. Prices in NIS including 17% VAT
-6. isKeyDiff=true for 1–2 specs that differentiate this product from the others
+4. zapUrl = "https://www.zap.co.il/model.aspx?modelid=[ID]" using the modelid from zapContext, or "" if unknown
+5. priceMin / priceMax in NIS from the catalog data
+6. isKeyDiff=true on 1–2 specs that differentiate this product from the other two
 7. mainDifferentiator = single key advantage over the other two options (Hebrew)
 8. categoryTip = one practical buying tip for this category in Israel (Hebrew)
 `.trim();
@@ -82,14 +100,14 @@ async function handleFirstTurn(
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `המשתמש רוצה לקנות: "${query}"\n\nאנא גש לזאפ:\n${zapSearchUrl}\n\nסרוק מה קיים, ואז שאל שאלה אחת על הצורך הפונקציונלי של המשתמש — לא על מחיר.`,
+      content: `המשתמש רוצה לקנות: "${query}"\n\nהתחל מדף חיפוש הזאפ:\n${zapSearchUrl}\n\nעקוב אחר קישור לדף קטלוג הדגמים המלא כדי לראות את כל המוצרים והמפרטים שלהם.`,
     },
   ];
 
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 2048,
+      max_tokens: 8192,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch", allowed_callers: ["direct"] }],
       output_config: {
@@ -111,10 +129,14 @@ async function handleFirstTurn(
       if (textBlock) {
         const parsed = FirstTurnSchema.safeParse(JSON.parse(textBlock.text));
         if (parsed.success) {
+          // Embed secondQuestion into zapContext so subsequent turns can access it
+          const zapContextWithPlan = parsed.data.secondQuestion
+            ? `[SECOND_QUESTION_IF_NEEDED]: ${parsed.data.secondQuestion}\n\n${parsed.data.zapContext}`
+            : parsed.data.zapContext;
           return {
             type: "question",
             text: parsed.data.question,
-            zapContext: parsed.data.zapContext,
+            zapContext: zapContextWithPlan,
           };
         }
       }
@@ -138,13 +160,13 @@ async function handleSubsequentTurn(
 
   const userContent = `משתמש רוצה לקנות: "${query}"
 
-מידע שנאסף מזאפ:
+קטלוג מוצרים מזאפ (כולל שאלה שנייה מתוכננת אם קיימת):
 ${zapContext}
 
 שיחה עד כה:
 ${conversationHistory}
 
-על סמך תשובות המשתמש, החלט אם צריך עוד שאלה אחת או שניתן להציג המלצות מוצרים.`;
+החלט: האם יש לשאול את השאלה השנייה המתוכננת, או להציג 3 מוצרים מהקטלוג שמתאימים לצרכי המשתמש.`;
 
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",

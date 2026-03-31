@@ -102,7 +102,7 @@ export default async function SearchPage({ searchParams }: Props) {
                 ...data.products.filter((p) => p.recommended),
                 ...data.products.filter((p) => !p.recommended),
               ].map((product) => (
-                <ProductSelectionCard key={product.name} product={product} />
+                <ProductSelectionCard key={product.name} product={product} originalQuery={query} />
               ))}
             </div>
 

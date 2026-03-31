@@ -9,10 +9,11 @@ const popularityColors: Record<Product["popularity"], string> = {
 
 interface Props {
   product: Product;
+  originalQuery: string;
 }
 
-export default function ProductSelectionCard({ product }: Props) {
-  const compareUrl = `/compare?name=${encodeURIComponent(product.name)}&brand=${encodeURIComponent(product.brand)}&q=${encodeURIComponent(product.searchQuery)}&min=${product.priceMin}&max=${product.priceMax}&zapUrl=${encodeURIComponent(product.zapUrl)}`;
+export default function ProductSelectionCard({ product, originalQuery }: Props) {
+  const compareUrl = `/compare?name=${encodeURIComponent(product.name)}&brand=${encodeURIComponent(product.brand)}&q=${encodeURIComponent(product.searchQuery)}&min=${product.priceMin}&max=${product.priceMax}&zapUrl=${encodeURIComponent(product.zapUrl)}&oq=${encodeURIComponent(originalQuery)}`;
 
   return (
     <div

@@ -9,6 +9,7 @@ interface Props {
     min?: string;
     max?: string;
     zapUrl?: string;
+    oq?: string;
   }>;
 }
 
@@ -20,15 +21,18 @@ export default async function ComparePage({ searchParams }: Props) {
   const priceMin = parseInt(params.min ?? "0") || 0;
   const priceMax = parseInt(params.max ?? "0") || 0;
   const zapUrl = params.zapUrl?.trim() ?? "";
+  const originalQuery = params.oq?.trim() ?? "";
 
   if (!searchQuery) redirect("/");
 
   const hasPriceRange = priceMin > 0 && priceMax > 0;
 
-  // Build the best Zap link available
+  // Build the best Zap link available:
+  // 1. Direct product URL from Zap (model.aspx) — best
+  // 2. Search Zap with original user query (e.g. "טוחן אשפה") — reliable fallback
   const zapLink =
     zapUrl ||
-    `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(name || searchQuery)}`;
+    `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(originalQuery || name)}`;
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -25,12 +25,13 @@ async function getPricesFromZap(
   zapUrl: string,
   client: Anthropic
 ): Promise<RetailerPrice[]> {
-  const messages: Anthropic.MessageParam[] = [
-    {
-      role: "user",
-      content: `Fetch this Zap product page and extract all retailer prices:\n${zapUrl}\n\nProduct: "${productName}"\nReturn every retailer listed with their price and direct link to the product on their site.`,
-    },
-  ];
+  const isSearchUrl = zapUrl.includes("/search.aspx");
+
+  const userContent = isSearchUrl
+    ? `Fetch this Zap.co.il search page:\n${zapUrl}\n\nFind the product "${productName}" in the results. Then fetch its Zap product page (model.aspx URL) to get the full list of retailers and prices. Return every retailer with their price and direct link to the product on their site.`
+    : `Fetch this Zap product page:\n${zapUrl}\n\nExtract all retailer prices for "${productName}". Return every retailer listed with their price and direct link to the product on their site.`;
+
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: userContent }];
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const response = await client.messages.create({
@@ -116,13 +117,15 @@ export async function getPrices(
 ): Promise<RetailerPrice[]> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  if (zapUrl) {
-    try {
-      return await getPricesFromZap(productName, zapUrl, client);
-    } catch (err) {
-      console.warn("[prices] Zap fetch failed, falling back to AI:", err instanceof Error ? err.message : err);
-    }
-  }
+  // Use provided zapUrl, or fall back to a Zap search for this specific product
+  const effectiveZapUrl =
+    zapUrl ||
+    `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(productName || searchQuery)}`;
 
-  return await getPricesFromAI(productName, searchQuery, client);
+  try {
+    return await getPricesFromZap(productName, effectiveZapUrl, client);
+  } catch (err) {
+    console.warn("[prices] Zap fetch failed, falling back to AI:", err instanceof Error ? err.message : err);
+    return await getPricesFromAI(productName, searchQuery, client);
+  }
 }

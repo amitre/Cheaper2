@@ -29,6 +29,7 @@ const RecommendationResponseSchema = z.object({
   categoryTip: z.string(),
 });
 
+export { ProductSchema };
 export type Product = z.infer<typeof ProductSchema>;
 export type RecommendationResponse = z.infer<typeof RecommendationResponseSchema>;
 

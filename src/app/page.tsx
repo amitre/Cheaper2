@@ -5,7 +5,7 @@ import SearchSubmitButton from "@/components/SearchSubmitButton";
 async function handleSearch(formData: FormData) {
   "use server";
   const query = formData.get("q")?.toString().trim();
-  if (query) redirect(`/search?q=${encodeURIComponent(query)}`);
+  if (query) redirect(`/chat?q=${encodeURIComponent(query)}`);
 }
 
 const examples = [
@@ -57,7 +57,7 @@ export default function Home() {
             {examples.map((ex) => (
               <a
                 key={ex}
-                href={`/search?q=${encodeURIComponent(ex)}`}
+                href={`/chat?q=${encodeURIComponent(ex)}`}
                 className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full transition-colors"
               >
                 {ex}

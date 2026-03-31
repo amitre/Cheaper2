@@ -48,7 +48,7 @@ RULES (non-negotiable):
 8. popularity values: "top_seller" = Zap bestseller, "popular" = widely purchased, "premium" = high-end, "budget_pick" = best value.
 9. mainDifferentiator = the single most important advantage this product has over the others (Hebrew, 1 sentence).
 10. categoryTip = one practical buying tip specific to this product category in Israel (Hebrew, 1–2 sentences).
-11. availableAt = list of retailer names (from: ${RETAILER_LIST}) that actually stock this product in Israel. Only include retailers you are confident carry this product. If you cannot name at least one retailer, do NOT include the product — omit it entirely.
+11. availableAt = list of retailer names (from: ${RETAILER_LIST}) that actually stock this product in Israel. Be VERY conservative — only list a retailer if you have strong confidence they carry this exact product or a close equivalent. Ask yourself: "Would I find this specific product on this Israeli retailer's website today?" If unsure, leave the retailer out. If you cannot name at least one retailer with strong confidence, set availableAt to an empty array and do NOT include the product in the recommendations. Products that are primarily sold in foreign markets (USA, Europe) and not distributed in Israel must be excluded.
 `.trim();
 
 export async function generateProducts(query: string): Promise<RecommendationResponse> {

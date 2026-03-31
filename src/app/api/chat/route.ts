@@ -4,16 +4,14 @@ import { z } from "zod";
 import { ProductSchema } from "@/lib/products";
 
 const FirstTurnSchema = z.object({
-  question: z.string(), // First clarifying question in Hebrew (about functional need, NOT price)
-  zapContext: z.string(), // Full product catalog extracted from Zap — used to answer user later
-  // Pre-planned second question if one is needed after the first answer (empty string = not needed)
-  secondQuestion: z.string(),
+  question: z.string(), // First clarifying question in Hebrew
+  zapContext: z.string(), // Full product catalog + planned question list
 });
 
 const SubsequentTurnSchema = z.object({
   showProducts: z.boolean(),
   question: z.string().optional(), // Next question (when showProducts=false)
-  products: z.array(ProductSchema).optional(), // Final product list (when showProducts=true)
+  products: z.array(ProductSchema).optional(), // (when showProducts=true)
   categoryTip: z.string().optional(),
 });
 
@@ -35,60 +33,66 @@ export type ChatApiResponse =
 const FIRST_TURN_SYSTEM = `
 You are a product research agent for Israeli consumers.
 
-YOUR TASK — do these steps in order:
-
-STEP 1 — Find the full product catalog:
+STEP 1 — Fetch the full product catalog:
   Fetch the Zap.co.il search results page for the query.
-  Look for a link to a category/models listing page (models.aspx or ctg.aspx).
-  Fetch that catalog page to see ALL available products with their full specs.
+  Find the link to the category/models listing page (models.aspx or ctg.aspx) and fetch it.
+  This gives you the complete product range with all specs.
 
-STEP 2 — Analyze differentiating dimensions:
-  Look at the product specs across the whole range — like an e-commerce filter sidebar.
-  Identify 2–4 dimensions that MOST differentiate products (e.g. motor power, noise level, capacity, usage type, connectivity, room size).
-  Determine which dimensions matter most for narrowing from the full range to 3 candidates.
-  Decide the MINIMUM number of questions needed (usually 1–2).
-  NEVER include price/budget as a dimension to ask about.
+STEP 2 — Identify filter dimensions:
+  Study the specs across all products — like an e-commerce filter sidebar.
+  Identify ALL meaningful dimensions that differentiate products
+  (e.g. motor power, noise, capacity, room size, usage type, connectivity, wash temperature, spin speed, etc.)
+  NEVER include price/budget as a dimension.
 
-STEP 3 — Plan and return:
-  question = first clarifying question in Hebrew about the most important functional dimension.
-    Keep it short, conversational, offering 2–4 concrete options if possible.
-    Example format: "האם אתם מעדיפים X, Y או Z?" or "כמה [dimension]?"
-  secondQuestion = the pre-planned second question to ask after getting the first answer (in Hebrew).
-    Set to empty string "" if one question is enough.
-  zapContext = the product catalog you extracted — formatted so it can be used later
-    to match products to the user's answers WITHOUT fetching Zap again.
-    Format each product on its own line:
-    "[brand] [model] | modelid=[ID or empty] | ₪[priceMin]–[priceMax] | [dim1]=[val] | [dim2]=[val] | ..."
-    Include ALL products you found, not just a summary.
+STEP 3 — Plan the question sequence and return:
+  question = the FIRST clarifying question in Hebrew, about the single most important dimension.
+    Short, conversational, offering 2–4 concrete options when possible.
+    E.g.: "לאיזה שימוש בעיקר — מטבח קטן, משפחה רגילה, או שימוש אינטנסיבי?"
+
+  zapContext = the full extracted catalog PLUS a planned question list.
+    Format:
+    ---CATALOG---
+    [brand] [model] | modelid=[ID] | ₪[min]–[max] | [spec1]=[val] | [spec2]=[val] | ...
+    (one product per line, ALL products)
+
+    ---PLANNED_QUESTIONS---
+    Q2: [second question in Hebrew, or empty if not needed]
+    Q3: [third question, or empty]
+    Q4: [fourth question, or empty]
+    (continue up to Q8 if needed — only include questions that genuinely help narrow down)
 `.trim();
 
 const SUBSEQUENT_TURN_SYSTEM = `
 You are a product advisor for Israeli consumers.
 
-You have a product catalog extracted from Zap (in zapContext).
-You have the conversation history showing what the user has told you about their needs.
+You have:
+- A product catalog extracted from Zap (in the CATALOG section of zapContext)
+- A pre-planned question sequence (in the PLANNED_QUESTIONS section)
+- The full conversation so far
 
-DECISION:
-- If the pre-planned secondQuestion was not yet asked AND it is non-empty AND you still need it, set showProducts=false and use it as your question.
-- Otherwise set showProducts=true and return exactly 3 products.
+DECISION RULES (questionsAsked = number of assistant messages in the conversation):
+- If questionsAsked < 8 AND the next planned question is non-empty AND it would still meaningfully help narrow down:
+    → set showProducts=false, ask the next planned question (adapt it based on prior answers if needed)
+- If the catalog is already narrow enough to confidently pick 3 products, OR questionsAsked >= 8:
+    → set showProducts=true
 
 SELECTING THE 3 PRODUCTS (when showProducts=true):
-  Filter the catalog using the user's answers to find products that match their stated needs.
-  From the matching products, pick:
-  1. The CHEAPEST matching product (popularity="budget_pick")
-  2. The best-balanced / most popular matching product (popularity="top_seller") — mark recommended=true
-  3. The highest-spec / premium matching product (popularity="premium")
-  If fewer than 3 products match, pick the closest alternatives from the catalog.
+  Filter the catalog using ALL the user's answers to find the best matching products.
+  Return exactly 3:
+  1. The CHEAPEST matching product — popularity="budget_pick"
+  2. The best-balanced / most popular match — popularity="top_seller", recommended=true
+  3. The best-spec / premium match — popularity="premium"
+  If the catalog has fewer than 3 matching products, pick the closest alternatives.
 
 PRODUCT FIELD RULES:
 1. All user-facing text (bestFor, popularityLabel, recommendationReason, mainDifferentiator, categoryTip) MUST be in HEBREW
-2. name and brand = official English names exactly as on Zap
-3. searchQuery = brand + model in English as sold in Israel
-4. zapUrl = "https://www.zap.co.il/model.aspx?modelid=[ID]" using the modelid from zapContext, or "" if unknown
-5. priceMin / priceMax in NIS from the catalog data
+2. name and brand = official English names exactly as shown on Zap
+3. searchQuery = brand + model in English
+4. zapUrl = "https://www.zap.co.il/model.aspx?modelid=[ID]" from catalog, or "" if no modelid
+5. priceMin / priceMax in NIS from the catalog
 6. isKeyDiff=true on 1–2 specs that differentiate this product from the other two
-7. mainDifferentiator = single key advantage over the other two options (Hebrew)
-8. categoryTip = one practical buying tip for this category in Israel (Hebrew)
+7. mainDifferentiator = the single most important advantage over the other two options (Hebrew)
+8. categoryTip = one practical buying tip for this product category in Israel (Hebrew)
 `.trim();
 
 async function handleFirstTurn(
@@ -100,7 +104,7 @@ async function handleFirstTurn(
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `המשתמש רוצה לקנות: "${query}"\n\nהתחל מדף חיפוש הזאפ:\n${zapSearchUrl}\n\nעקוב אחר קישור לדף קטלוג הדגמים המלא כדי לראות את כל המוצרים והמפרטים שלהם.`,
+      content: `המשתמש רוצה לקנות: "${query}"\n\nהתחל מדף חיפוש זאפ:\n${zapSearchUrl}\n\nעקוב אחר קישור לדף קטלוג הדגמים המלא כדי לראות את כל המוצרים והמפרטים שלהם.`,
     },
   ];
 
@@ -110,9 +114,7 @@ async function handleFirstTurn(
       max_tokens: 8192,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch", allowed_callers: ["direct"] }],
-      output_config: {
-        format: zodOutputFormat(FirstTurnSchema),
-      },
+      output_config: { format: zodOutputFormat(FirstTurnSchema) },
       system: FIRST_TURN_SYSTEM,
       messages,
     });
@@ -129,14 +131,10 @@ async function handleFirstTurn(
       if (textBlock) {
         const parsed = FirstTurnSchema.safeParse(JSON.parse(textBlock.text));
         if (parsed.success) {
-          // Embed secondQuestion into zapContext so subsequent turns can access it
-          const zapContextWithPlan = parsed.data.secondQuestion
-            ? `[SECOND_QUESTION_IF_NEEDED]: ${parsed.data.secondQuestion}\n\n${parsed.data.zapContext}`
-            : parsed.data.zapContext;
           return {
             type: "question",
             text: parsed.data.question,
-            zapContext: zapContextWithPlan,
+            zapContext: parsed.data.zapContext,
           };
         }
       }
@@ -154,26 +152,26 @@ async function handleSubsequentTurn(
   zapContext: string,
   client: Anthropic
 ): Promise<ChatApiResponse> {
+  const questionsAsked = messages.filter((m) => m.role === "assistant").length + 1; // +1 for first question
   const conversationHistory = messages
     .map((m) => `${m.role === "user" ? "משתמש" : "יועץ"}: ${m.content}`)
     .join("\n");
 
   const userContent = `משתמש רוצה לקנות: "${query}"
+questionsAsked so far: ${questionsAsked}
 
-קטלוג מוצרים מזאפ (כולל שאלה שנייה מתוכננת אם קיימת):
+קטלוג מוצרים ורשימת שאלות מתוכננות מזאפ:
 ${zapContext}
 
 שיחה עד כה:
 ${conversationHistory}
 
-החלט: האם יש לשאול את השאלה השנייה המתוכננת, או להציג 3 מוצרים מהקטלוג שמתאימים לצרכי המשתמש.`;
+החלט: לשאול שאלה נוספת מהרשימה המתוכננת, או להציג 3 מוצרים מהקטלוג שמתאימים לצרכים שתוארו.`;
 
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",
     max_tokens: 4096,
-    output_config: {
-      format: zodOutputFormat(SubsequentTurnSchema),
-    },
+    output_config: { format: zodOutputFormat(SubsequentTurnSchema) },
     system: SUBSEQUENT_TURN_SYSTEM,
     messages: [{ role: "user", content: userContent }],
   });
@@ -213,12 +211,7 @@ export async function POST(req: Request) {
     if (messages.length === 0) {
       result = await handleFirstTurn(query, client);
     } else {
-      result = await handleSubsequentTurn(
-        query,
-        messages,
-        zapContext ?? "",
-        client
-      );
+      result = await handleSubsequentTurn(query, messages, zapContext ?? "", client);
     }
 
     return Response.json(result);

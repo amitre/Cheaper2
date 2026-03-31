@@ -81,7 +81,7 @@ async function handleFirstTurn(
       model: "claude-haiku-4-5",
       max_tokens: 2048,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch" }],
+      tools: [{ type: "web_fetch_20260209" as any, name: "web_fetch", allowed_callers: ["direct"] }],
       output_config: {
         format: zodOutputFormat(FirstTurnSchema),
       },

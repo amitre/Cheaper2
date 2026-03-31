@@ -17,7 +17,7 @@ const ProductSchema = z.object({
   priceMax: z.number(),
   keySpecs: z.array(KeySpecSchema),
   bestFor: z.string(),
-  popularity: z.enum(["top_seller", "popular", "premium", "budget_pick"]),
+  popularity: z.enum(["top_seller", "popular", "premium", "budget_pick"]).catch("popular"),
   popularityLabel: z.string(),
   recommended: z.boolean(),
   recommendationReason: z.string().optional(),

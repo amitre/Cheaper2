@@ -165,7 +165,7 @@ ${conversationHistory}
   if (data.showProducts && data.products && data.products.length > 0) {
     return {
       type: "products",
-      products: data.products,
+      products: data.products.slice(0, 3),
       categoryTip: data.categoryTip ?? "",
     };
   }

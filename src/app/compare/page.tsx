@@ -27,12 +27,14 @@ export default async function ComparePage({ searchParams }: Props) {
 
   const hasPriceRange = priceMin > 0 && priceMax > 0;
 
-  // Build the best Zap link available:
-  // 1. Direct product URL from Zap (model.aspx) — best
-  // 2. Search Zap with original user query (e.g. "טוחן אשפה") — reliable fallback
-  const zapLink =
-    zapUrl ||
-    `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(originalQuery || name)}`;
+  // Use zapUrl only if it's a real product model page.
+  // If it's a category/search page or empty, search Zap by brand + product name for precision.
+  const isModelPage = zapUrl.includes("model.aspx") && zapUrl.includes("modelid=");
+  const zapLink = isModelPage
+    ? zapUrl
+    : `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(
+        [brand, name].filter(Boolean).join(" ") || originalQuery || searchQuery
+      )}`;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -43,7 +45,7 @@ export default async function ComparePage({ searchParams }: Props) {
           </a>
           <span className="text-gray-300">›</span>
           <a
-            href={`/search?q=${encodeURIComponent(name || searchQuery)}`}
+            href={`/chat?q=${encodeURIComponent(originalQuery || searchQuery)}`}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors truncate"
           >
             חזור לאפשרויות

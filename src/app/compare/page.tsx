@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import ImportCalculator from "@/components/ImportCalculator";
 
 interface Props {
   searchParams: Promise<{
@@ -99,13 +98,6 @@ export default async function ComparePage({ searchParams }: Props) {
           </a>
         </section>
 
-        {/* Import calculator */}
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            מחשבון ייבוא מחו&quot;ל
-          </h2>
-          <ImportCalculator />
-        </section>
       </main>
 
       <footer className="border-t border-gray-100 py-5 text-center text-xs text-gray-400">

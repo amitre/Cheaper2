@@ -31,36 +31,43 @@ export type ChatApiResponse =
   | { type: "products"; products: z.infer<typeof ProductSchema>[]; categoryTip: string };
 
 const FIRST_TURN_SYSTEM = `
-You are a product research agent for Israeli consumers.
+You are a knowledgeable product advisor for Israeli consumers — like an experienced salesperson in an appliance store.
 
-STEP 1 — Fetch the full product catalog:
-  Fetch the Zap.co.il search results page for the query.
-  Find the link to the category/models listing page (models.aspx or ctg.aspx) and fetch it.
-  This gives you the complete product range with all specs.
+STEP 1 — Research how buyers choose this product:
+  Fetch a buying guide search, e.g.:
+    https://www.google.com/search?q=what+to+consider+when+buying+[product+in+English]+buying+guide
+  Extract the KEY BUYER DECISION FACTORS — things like household size, usage intensity,
+  installation context, noise sensitivity, space constraints. NOT wattage or model specs.
 
-STEP 2 — Identify filter dimensions:
-  Study the specs across all products — like an e-commerce filter sidebar.
-  Identify ALL meaningful dimensions that differentiate products
-  (e.g. motor power, noise, capacity, room size, usage type, connectivity, wash temperature, spin speed, etc.)
-  NEVER include price/budget as a dimension.
+STEP 2 — Fetch the Zap product catalog:
+  Fetch the Zap.co.il search results page, find the category/models page link, and fetch it.
+  Map catalog dimensions to the buyer factors you found above.
 
-STEP 3 — Plan the question sequence and return:
-  question = the FIRST clarifying question in Hebrew, about the single most important dimension.
-    Short, conversational, offering 2–4 concrete options when possible.
-    E.g.: "לאיזה שימוש בעיקר — מטבח קטן, משפחה רגילה, או שימוש אינטנסיבי?"
+STEP 3 — Design need-based questions and return:
 
-  zapContext = the extracted catalog PLUS a planned question list.
-    Keep it CONCISE — max ~30 products, only the specs relevant to the planned questions.
+  Think like a good salesperson. Ask about the PERSON and their SITUATION, not about specs.
+
+  BAD (spec-based):   "כמה וואט אתה מעדיף?"
+  GOOD (need-based):  "לכמה נפשות במשפחה ועד כמה אתם משתמשים במטבח ביום?"
+
+  BAD:  "האם אתה מחפש מודל עם תא אחסון?"
+  GOOD: "האם הרעש חשוב לכם — למשל אם הכיור ליד סלון או חדר ילדים?"
+
+  question = the first question in Hebrew. Short, friendly, concrete options where natural.
+
+  zapContext = compact catalog + buying criteria + planned follow-up questions.
     Format:
+    ---BUYING_CRITERIA---
+    [bullet list of key need-based factors, in English]
+
     ---CATALOG---
-    [brand] [model] | modelid=[ID] | ₪[min]–[max] | [key_spec1]=[val] | [key_spec2]=[val]
-    (one product per line; omit irrelevant specs; if >30 products, keep the most representative)
+    [brand] [model] | modelid=[ID] | ₪[min]–[max] | [spec_mapped_to_need]=[val] | ...
+    (max 30 products; only specs that relate to buying criteria)
 
     ---PLANNED_QUESTIONS---
-    Q2: [second question in Hebrew, or empty if not needed]
-    Q3: [third question, or empty]
-    Q4: [fourth question, or empty]
-    (up to Q8 — only questions that genuinely help narrow down; omit empty ones)
+    Q2: [next need-based question in Hebrew]
+    Q3: ...
+    (up to Q8; only include questions that genuinely help; omit if not needed)
 `.trim();
 
 const SUBSEQUENT_TURN_SYSTEM = `
@@ -105,7 +112,14 @@ async function handleFirstTurn(
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `המשתמש רוצה לקנות: "${query}"\n\nהתחל מדף חיפוש זאפ:\n${zapSearchUrl}\n\nעקוב אחר קישור לדף קטלוג הדגמים המלא כדי לראות את כל המוצרים והמפרטים שלהם.`,
+      content: `המשתמש רוצה לקנות: "${query}"
+
+שלב 1 — חפש מדריך קנייה:
+${`https://www.google.com/search?q=${encodeURIComponent(`what to consider when buying ${query} buying guide`)}`}
+
+שלב 2 — לאחר מכן חפש את קטלוג המוצרים בזאפ:
+${zapSearchUrl}
+עקוב אחר קישור לדף הדגמים המלא (models.aspx) כדי לראות את כל המוצרים.`,
     },
   ];
 

@@ -28,7 +28,7 @@ export default function ProductSelectionCard({ product, originalQuery }: Props) 
         <div className="absolute -top-px left-5 right-5 h-0.5 bg-blue-500 rounded-full" />
       )}
 
-      {/* Top row: popularity + price */}
+      {/* Top row: popularity badge only — no prices (Zap shows real-time prices) */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex flex-wrap gap-1.5">
           {product.recommended && (
@@ -41,11 +41,6 @@ export default function ProductSelectionCard({ product, originalQuery }: Props) 
           >
             {product.popularityLabel}
           </span>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-base font-bold text-gray-900">
-            ₪{product.priceMin.toLocaleString()}–{product.priceMax.toLocaleString()}
-          </p>
         </div>
       </div>
 

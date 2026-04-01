@@ -27,10 +27,10 @@ export default async function ComparePage({ searchParams }: Props) {
 
   const hasPriceRange = priceMin > 0 && priceMax > 0;
 
-  // Use zapUrl only if it's a real product model page.
-  // If it's a category/search page or empty, search Zap by brand + product name for precision.
-  const isModelPage = zapUrl.includes("model.aspx") && zapUrl.includes("modelid=");
-  const zapLink = isModelPage
+  // Only use zapUrl if it contains a real numeric modelid (e.g. modelid=1234567).
+  // Claude sometimes fabricates modelids like 0 or non-numeric strings — those redirect to Zap homepage.
+  const modelIdMatch = zapUrl.match(/modelid=(\d{4,})/);
+  const zapLink = modelIdMatch
     ? zapUrl
     : `https://www.zap.co.il/search.aspx?keyword=${encodeURIComponent(
         [brand, name].filter(Boolean).join(" ") || originalQuery || searchQuery

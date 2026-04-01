@@ -49,17 +49,18 @@ STEP 3 — Plan the question sequence and return:
     Short, conversational, offering 2–4 concrete options when possible.
     E.g.: "לאיזה שימוש בעיקר — מטבח קטן, משפחה רגילה, או שימוש אינטנסיבי?"
 
-  zapContext = the full extracted catalog PLUS a planned question list.
+  zapContext = the extracted catalog PLUS a planned question list.
+    Keep it CONCISE — max ~30 products, only the specs relevant to the planned questions.
     Format:
     ---CATALOG---
-    [brand] [model] | modelid=[ID] | ₪[min]–[max] | [spec1]=[val] | [spec2]=[val] | ...
-    (one product per line, ALL products)
+    [brand] [model] | modelid=[ID] | ₪[min]–[max] | [key_spec1]=[val] | [key_spec2]=[val]
+    (one product per line; omit irrelevant specs; if >30 products, keep the most representative)
 
     ---PLANNED_QUESTIONS---
     Q2: [second question in Hebrew, or empty if not needed]
     Q3: [third question, or empty]
     Q4: [fourth question, or empty]
-    (continue up to Q8 if needed — only include questions that genuinely help narrow down)
+    (up to Q8 — only questions that genuinely help narrow down; omit empty ones)
 `.trim();
 
 const SUBSEQUENT_TURN_SYSTEM = `
@@ -129,7 +130,14 @@ async function handleFirstTurn(
         (b): b is Anthropic.TextBlock => b.type === "text"
       );
       if (textBlock) {
-        const parsed = FirstTurnSchema.safeParse(JSON.parse(textBlock.text));
+        let rawJson: unknown;
+        try {
+          rawJson = JSON.parse(textBlock.text);
+        } catch (e) {
+          console.error("[chat/first-turn] JSON parse failed:", e, "\nRaw text (first 500):", textBlock.text.slice(0, 500));
+          throw new Error("First turn: model returned invalid JSON");
+        }
+        const parsed = FirstTurnSchema.safeParse(rawJson);
         if (parsed.success) {
           return {
             type: "question",
@@ -137,7 +145,11 @@ async function handleFirstTurn(
             zapContext: parsed.data.zapContext,
           };
         }
+        console.error("[chat/first-turn] Schema validation failed:", parsed.error.issues);
+        throw new Error("First turn: schema mismatch — " + parsed.error.issues.map(i => i.message).join(", "));
       }
+      console.error("[chat/first-turn] No text block found. Content types:", response.content.map(b => b.type));
+      throw new Error("First turn: end_turn with no text block");
     }
 
     throw new Error(`First turn: unexpected stop_reason ${response.stop_reason}`);

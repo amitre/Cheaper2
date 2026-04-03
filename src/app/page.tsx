@@ -1,12 +1,5 @@
-import { redirect } from "next/navigation";
 import { retailers } from "@/lib/retailers";
-import SearchSubmitButton from "@/components/SearchSubmitButton";
-
-async function handleSearch(formData: FormData) {
-  "use server";
-  const query = formData.get("q")?.toString().trim();
-  if (query) redirect(`/chat?q=${encodeURIComponent(query)}`);
-}
+import SearchBar from "@/components/SearchBar";
 
 const examples = [
   "Samsung Galaxy S25",
@@ -40,17 +33,8 @@ export default function Home() {
             Compare across Zap, KSP, iDigital, Ivory, Bug, and more — in seconds.
           </p>
 
-          {/* Search form */}
-          <form action={handleSearch} className="flex gap-2">
-            <input
-              name="q"
-              type="text"
-              placeholder="Search a product or model number..."
-              autoFocus
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
-            <SearchSubmitButton label="Compare" loadingLabel="מחפש..." />
-          </form>
+          {/* Search bar with camera */}
+          <SearchBar />
 
           {/* Examples */}
           <div className="flex flex-wrap gap-2 justify-center mt-4">

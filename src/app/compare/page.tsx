@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import InternationalPrices from "@/components/InternationalPrices";
 
 interface Props {
   searchParams: Promise<{
@@ -97,6 +98,9 @@ export default async function ComparePage({ searchParams }: Props) {
             </svg>
           </a>
         </section>
+
+        {/* International prices */}
+        <InternationalPrices searchQuery={brand ? `${brand} ${name}` : name || searchQuery} />
 
       </main>
 

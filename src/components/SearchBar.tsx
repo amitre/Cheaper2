@@ -9,6 +9,7 @@ export default function SearchBar() {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   function handleTextSubmit(e: React.FormEvent) {
@@ -64,6 +65,20 @@ export default function SearchBar() {
           className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
         />
 
+        {/* Upload image button */}
+        <button
+          type="button"
+          onClick={() => uploadInputRef.current?.click()}
+          disabled={isIdentifying}
+          title="העלה תמונה"
+          className="px-3 py-3 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </button>
+
         {/* Camera button */}
         <button
           type="button"
@@ -95,12 +110,20 @@ export default function SearchBar() {
         </button>
       </form>
 
-      {/* Hidden file input — capture=environment opens rear camera on mobile */}
+      {/* Camera input — opens rear camera on mobile */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={handleImageChange}
+      />
+      {/* Upload input — opens file/gallery picker */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
         className="hidden"
         onChange={handleImageChange}
       />
